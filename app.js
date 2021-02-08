@@ -5,8 +5,7 @@ const Employee_Tracker = require('./sql_queries');
 
 function main() {
     let employeeTracker = new Employee_Tracker();
-    employeeTracker.updateEmployeeRole("Ankush", "Challa", "Intern");
-    // employeeTracker.connection.end();
+    employeeTracker.viewDepartment("Developement");
 }
 
 main();

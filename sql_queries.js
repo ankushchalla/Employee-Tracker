@@ -1,4 +1,5 @@
 const mysql = require('mysql');
+const cTable = require('console.table');
 
 class Employee_Tracker {
     constructor() {
@@ -18,40 +19,44 @@ class Employee_Tracker {
             multipleStatements: true
         });
     }
+
+    getAll(view) {
+        return new Promise((resolve, reject) => {
+            let query = `SELECT employee.first_name, employee.last_name, role.title, role.salary, department.department, manager
+        FROM employee
+            INNER JOIN role ON employee.role_id = role.ID
+            INNER JOIN department ON role.department_id = department.ID;`;
+            this.connection.query(query, (err, res) => {
+                if (err) return reject(err);
+                for (let i = 0; i < res.length; i++) {
+                    /*
+                      res[i].manager = the mysql KEY (int starting at 1) that corresponds to another employee. 
+                      The position of this employee in the res array is given by res[i].manager - 1.
+                    */
+                    if (res[i].manager) {
+                        res[i].manager = res[res[i].manager - 1].first_name + " " + res[res[i].manager - 1].last_name;
+                    }
+                }
+                view ? console.table(res): resolve(res);
+            });
+        });
+    }
+
     // Get employee/department/role table.
     viewTable(table) {
         this.connection.query(`SELECT * FROM ${table}`, (err, res) => {
             if (err) throw err;
-            console.log(res);
+            console.table(res);
+            return res;
         });
     }
 
     // View all employees in a specific department
-    viewDepartment(department) {
-        let query = `DROP TABLE IF EXISTS employee_names;
-
-        CREATE TEMPORARY TABLE employee_names (
-            first_name VARCHAR(30) NOT NULL, 
-            last_name VARCHAR(30) NOT NULL,
-            role VARCHAR(30) NOT NULL,
-            department_id INT NOT NULL
-        );
-        
-        INSERT INTO employee_names
-        -- Get department_id from role. --   
-        SELECT first_name, last_name, role.title, department_id
-        FROM employee
-        INNER JOIN role ON employee.role_id = role.ID;
-        
-        SELECT department.name, first_name, last_name, role FROM 
-        employee_names
-        INNER JOIN department ON employee_names.department_id = department.ID
-        WHERE department.name = ?;`
-
-        this.connection.query(query, [department], (err, res) => {
-            if (err) throw err;
-            console.log(res[res.length - 1]);
-        })
+    // You can probably just filter a table by department.
+    async viewDepartment(department) {
+        let employees = await this.getAll(false)
+        employees = employees.filter(employee => employee.department === department);
+        console.table(employees);
     }
 
     // View employees by role.
@@ -91,6 +96,7 @@ class Employee_Tracker {
             });
     }
 
+    // Change the role of an employee.
     updateEmployeeRole(firstName, lastName, newRole) {
         this.connection.query("SELECT role.ID FROM role WHERE role.title = ?", [newRole], (err, res) => {
             if (err) throw err;
