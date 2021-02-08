@@ -13,14 +13,15 @@ class Employee_Tracker {
             user: 'root',
 
             // Be sure to update with your own MySQL password!
-            password: 'Ouim@te1',
+            password: '',
             database: 'employee_tracker_db',
 
             multipleStatements: true
         });
     }
 
-    getAll(view) {
+    // Gets a table with all employee info: Name, role, salary, department, manager.
+    getAll() {
         return new Promise((resolve, reject) => {
             let query = `SELECT employee.first_name, employee.last_name, role.title, role.salary, department.department, manager
         FROM employee
@@ -37,81 +38,95 @@ class Employee_Tracker {
                         res[i].manager = res[res[i].manager - 1].first_name + " " + res[res[i].manager - 1].last_name;
                     }
                 }
-                view ? console.table(res): resolve(res);
+                return resolve(res);
             });
         });
     }
 
-    // Get employee/department/role table.
-    viewTable(table) {
-        this.connection.query(`SELECT * FROM ${table}`, (err, res) => {
-            if (err) throw err;
-            console.table(res);
-            return res;
-        });
-    }
-
-    // View all employees in a specific department
-    // You can probably just filter a table by department.
+    // View all employees in a specific department.
     async viewDepartment(department) {
-        let employees = await this.getAll(false)
+        let employees = await this.getAll();
         employees = employees.filter(employee => employee.department === department);
         console.table(employees);
     }
 
-    // View employees by role.
-    viewByRole(role) {
-        let query = `SELECT role.title, first_name, last_name, manager_id FROM employee 
-        INNER JOIN role ON employee.role_id = role.ID
-        WHERE role.title = ?;`
+    // View all employees who have a given role.
+    async viewByRole(role) {
+        let employees = await this.getAll();
+        employees = employees.filter(employee => employee.title === role);
+        console.table(employees);
+    }
 
-        this.connection.query(query, [role], (err, res) => {
-            if (err) throw err;
-            console.log(res);
+    getDepartments() {
+        return new Promise((resolve, reject) => {
+            this.connection.query('SELECT * FROM department', (err, res) => {
+                if (err) return reject(err);
+                resolve(res.map(col => col.department));
+            })
+        })
+    }
+
+    getRoles() {
+        return new Promise((resolve, reject) => {
+            this.connection.query('SELECT * FROM role', (err, res) => {
+                if (err) return reject(err);
+                resolve(res.map(col => col.title));
+            })
         })
     }
 
     addDepartment(department) {
-        this.connection.query("INSERT INTO department (name) VALUES (?)", [department], (err, res) => {
-            if (err) throw err;
-            this.viewTable("department")
-        })
+        return new Promise((resolve, reject) => {
+            this.connection.query("INSERT INTO department (department) VALUES (?)", [department], async (err, res) => {
+                if (err) reject(err);
+                let departments = await this.getDepartments();
+                resolve(`All departments: ${departments}`);
+            });
+        });
     }
 
     addRole(role) {
-        this.connection.query("INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)",
+        return new Promise((resolve, reject) => {
+            this.connection.query("INSERT INTO role (title, salary, department_id) VALUES (?, ?, ?)",
             [role.title, role.salary, role.department_id],
-            (err, res) => {
-                if (err) throw err;
-                this.viewTable("role")
+            async (err, res) => {
+                if (err) reject(err);
+                let roles = await this.getRoles();
+                resolve(`All roles: ${roles}`);
             });
+        })
+        
     }
 
-    addEmployee(employee) {
-        this.connection.query("INSERT INTO employee (first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)",
-            [employee.first_name, employee.last_name, employee.role_id, employee.manager_id],
+    async addEmployee(employee) {
+        return new Promise((resolve, reject) => {
+            this.connection.query("INSERT INTO employee (first_name, last_name, role_id, manager) VALUES (?, ?, ?, ?)",
+            [employee.first_name, employee.last_name, employee.role_id, employee.manager],
             (err, res) => {
-                if (err) throw err;
-                this.viewTable("employee")
+                if (err) reject(err);
+                let employees = this.getAll();
+                resolve(employees);
             });
+        });
     }
 
     // Change the role of an employee.
     updateEmployeeRole(firstName, lastName, newRole) {
-        this.connection.query("SELECT role.ID FROM role WHERE role.title = ?", [newRole], (err, res) => {
-            if (err) throw err;
-            let newRoleID = res[0].ID;
-            let query = `UPDATE employee SET role_id = ?
-            WHERE first_name = ? AND last_name = ?;`;
-            this.connection.query(query, [newRoleID, firstName, lastName], (err, res) => {
-                if (err) throw err;
-                this.viewTable("employee");
-            })
-        })
+        return new Promise((resolve, reject) => {
+            this.connection.query("SELECT role.ID FROM role WHERE role.title = ?", [newRole], (err, res) => {
+                if (err) reject(err);
+                let newRoleID = res[0].ID;
+                let query = `UPDATE employee SET role_id = ?
+                WHERE first_name = ? AND last_name = ?;`;
+                this.connection.query(query, [newRoleID, firstName, lastName], (err, res) => {
+                    if (err) throw err;
+                    this.getAll();
+                });
+            });
+        });
 
     }
 }
-
 
 
 module.exports = Employee_Tracker;
