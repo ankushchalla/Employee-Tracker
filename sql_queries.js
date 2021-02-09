@@ -57,6 +57,15 @@ class Employee_Tracker {
         console.table(employees);
     }
 
+    getEmployees() {
+        return new Promise((resolve, reject) => {
+            this.connection.query('SELECT * FROM employee', (err, res) => {
+                if (err) return reject(err);
+                resolve(res.map(col => col.first_name + " " + col.last_name));
+            })
+        })
+    }
+
     getDepartments() {
         return new Promise((resolve, reject) => {
             this.connection.query('SELECT * FROM department', (err, res) => {

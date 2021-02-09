@@ -19,7 +19,7 @@ function main() {
         let table;
         switch (response.route) {
             case 'View all employees.':
-                table = await employeeTracker.getAll(false);
+                table = await employeeTracker.getAll();
                 console.table(table);
                 main();
                 break;
@@ -111,9 +111,16 @@ function main() {
                         message: 'Enter the role ID for the new employee:'
                     },
                     {
+                        type: 'list',
+                        name: 'hasManager',
+                        message: 'Does the employee have a manager?',
+                        choices: ['Yes', 'No']
+                    },
+                    {
                         type: 'input',
                         name: 'manager',
-                        message: 'Enter the manager ID for the new employee:'
+                        message: 'Enter the manager ID for the new employee:',
+                        when: answers => answers.hasManager === 'Yes'
                     }
                 ]).then(async answer => {
                     let employees = await employeeTracker.addEmployee({
@@ -125,6 +132,29 @@ function main() {
                     console.table(employees);
                     main();
                 });
+                break;
+            case 'Update an employee role.':
+                let employees = await employeeTracker.getEmployees();
+                let allRoles = await employeeTracker.getRoles();
+                inquirer.prompt([
+                    {
+                        type: 'list',
+                        name: 'employee',
+                        message: 'Choose employee to update.',
+                        choices: employees
+                    },
+                    {
+                        type: 'list',
+                        name: 'role',
+                        message: "Choose the employee's new role:",
+                        choices: allRoles
+                    }
+                ]).then(async answer => {
+                    let [first_name, last_name] = answer.employee.split(" ");
+                    employeeTracker.updateEmployeeRole(first_name, last_name, answer.role);
+                    console.log("Employee role updated. See 'View all employees' for more info.");
+                    main();
+                })
                 break;
             case 'End program.':
                 employeeTracker.connection.end();
